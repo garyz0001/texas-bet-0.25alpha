@@ -148,3 +148,43 @@ Cloudflare 部署
   node check-ui.js    静态契约 + 部署文件检查
   npm run build       通过（Cloudflare Pages 构建命令）
   运行中的 8080 实测：/api/ping、创建/加入/开局、房主权限校验全部正常
+
+------------------------------------------------
+2026-10-06 第三轮（同为 0.25alpha）：修 Cloudflare 部署失败 code 10097
+------------------------------------------------
+
+  [报错] In order to use Durable Objects with a free plan, you must create a
+         namespace using a `new_sqlite_classes` migration. [code: 10097]
+
+  [原因] wrangler.toml 里写的是
+             [[migrations]]
+             new_classes = ["RoomStore"]
+         免费套餐不允许用 new_classes 建 DO 命名空间，必须是 new_sqlite_classes。
+
+  [修复] wrangler.toml 改为
+             [[migrations]]
+             new_sqlite_classes = ["RoomStore"]
+         （RoomStore 只用 state.storage.get/put，新旧两种存储 API 都兼容）
+
+  [顺手] Worker 名字对齐：wrangler.toml 的 name 改为 CI 期望的
+         texas-bet-0-25alpha，消除 "Failed to match Worker name" 告警，
+         也避免 Cloudflare 自动开 PR 改配置。改仓库名时记得同步改这里。
+
+  [加固] room-core.js：act() 里补齐可能缺失的 history/log/bench 数组。
+         落盘时是刻意不存 history（避免撑爆存储），但 DO 被回收重建后
+         牌局对象就没有 history 了 —— 此时第一次下注会在 S.history.push 上
+         崩掉、撤销也会崩。现在统一兜底，不管从哪恢复都能跑。
+
+  [测试] test-worker.js 新增 6b：模拟 DO 重建后，验证
+             · 当前行动者可以继续弃牌（不会因缺 history 崩）
+             · 撤销接口返回 200 而不是 500
+         check-ui.js 新增两条断言：wrangler.toml 必须是 new_sqlite_classes、
+         且不得出现 new_classes —— 让这个坑不会回归。
+
+  [文档] README.md 加「部署报错速查」表，把 build / 10097 / Worker 名三个
+         坑都记下来；并补上 npx wrangler dev 本地模拟 DO 的用法。
+
+回归（全部通过）
+----------------
+  node test.js / fuzz.js / test-room.js / test-dom.js / test-worker.js / check-ui.js
+  npm run build

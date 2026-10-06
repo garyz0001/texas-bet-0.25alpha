@@ -1,6 +1,8 @@
 # Cloudflare Worker + 静态资源 + Durable Object（房间状态）
 # 部署： npm run build && npx wrangler deploy
-name = "texas-bet"
+# 名字必须和你在 Cloudflare 上创建的 Worker 一致，否则 wrangler 会告警
+# （本仓库在 CI 里期望的是 texas-bet-0-25alpha；改名时这里要跟着改）
+name = "texas-bet-0-25alpha"
 main = "worker.mjs"
 compatibility_date = "2026-10-06"
 
@@ -16,4 +18,5 @@ class_name = "RoomStore"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["RoomStore"]
+# 免费套餐必须用 new_sqlite_classes 建 Durable Object 命名空间（wrangler 报 code 10097）
+new_sqlite_classes = ["RoomStore"]

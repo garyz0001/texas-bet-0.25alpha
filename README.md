@@ -75,6 +75,25 @@ window.TEXAS_BET_API = 'https://你的后端地址';
 
 > 检查后端通不通：访问 `<后端>/api/ping`，正常返回 `{"ok":true,...}`。
 
+#### 部署报错速查
+
+| 报错 | 原因 | 已处理 |
+|---|---|---|
+| `Missing script: "build"` | Cloudflare Pages 默认跑 `npm run build`，项目里没有 | ✅ 加了 `build` 脚本 |
+| `must create a namespace using a new_sqlite_classes migration [code: 10097]` | **免费套餐的 Durable Object 必须用 `new_sqlite_classes`**，不能用 `new_classes` | ✅ `wrangler.toml` 已改 |
+| `Failed to match Worker name ... expected "xxx"` | `wrangler.toml` 的 `name` 和 Cloudflare 上的 Worker 名不一致 | ✅ 已对齐；**改仓库/Worker 名时记得同步改这里** |
+
+> 改完只要把代码推上去让它重新构建部署即可；本地则是 `npm run deploy`。
+
+#### 本地也能先把 Cloudflare 版跑起来看看
+
+```bash
+npm run build
+npx wrangler dev        # 本地起一个和线上一模一样的 Worker + DO
+```
+
+`wrangler dev` 会在本地模拟 Durable Object，不用先部署就能验证房间功能。
+
 ## 测试
 
 ```bat

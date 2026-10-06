@@ -76,6 +76,10 @@ const wr = fs.readFileSync('wrangler.toml', 'utf8');
 if (!/durable_objects\.bindings/.test(wr) || !/class_name\s*=\s*"RoomStore"/.test(wr)) {
   console.log('FAIL wrangler.toml 缺少 Durable Object 绑定'); fails++;
 } else console.log('ok   wrangler.toml 已绑定 Durable Object RoomStore');
+if (!/new_sqlite_classes\s*=\s*\[\s*"RoomStore"\s*\]/.test(wr)) {
+  console.log('FAIL wrangler.toml 必须用 new_sqlite_classes（免费版 DO 会报 code 10097）'); fails++;
+} else console.log('ok   wrangler.toml 用 new_sqlite_classes 建 DO（免费版要求）');
+if (/new_classes\s*=/.test(wr)) { console.log('FAIL 不要写 new_classes，免费版不认'); fails++; }
 if (!/class RoomStore/.test(fs.readFileSync('worker.mjs', 'utf8'))) {
   console.log('FAIL worker.mjs 没有导出 RoomStore'); fails++;
 } else console.log('ok   worker.mjs 导出 RoomStore');

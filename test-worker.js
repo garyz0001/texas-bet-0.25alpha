@@ -123,8 +123,22 @@ function ok(v, m) { if (!v) { console.log('  FAIL ' + m); fails++; } else consol
   eq(again.state.handNo, 2, 'DO 重建后牌局状态还在');
   eq(again.started, true, 'DO 重建后仍是已开局');
 
+  sec('6b. DO 重建后牌局还能继续操作（history 不落盘的回归）');
+  {
+    const v2 = (await j(await S(host.code, guest.token))).body;
+    const tok = TOK[seatPid(v2)];
+    let r = await j(await A(host.code, tok, { action: 'fold' }));
+    eq(r.body.ok, true, 'DO 重建后当前行动者可以弃牌（S.history 已补齐）');
+    eq(r.body.state.phase === 'showdown' || r.body.state.phase === 'playing', true, '牌局正常推进 phase=' + r.body.state.phase);
+    // 撤销也要能跑（没有可撤销的内容时应返回友好文案，而不是 500）
+    const u = await j(await A(host.code, host.token, { action: 'undo' }));
+    ok(typeof u.body.ok === 'boolean', '撤销接口有响应 ok=' + u.body.ok + (u.body.msg ? ' msg=' + u.body.msg : ''));
+    eq(u.status, 200, '撤销没有抛异常（状态 200）');
+  }
+
   sec('7. 轮询 rev 去重 + 退出房间');
-  const rev = again.rev;
+  const fresh = (await j(await S(host.code, guest.token))).body;   // 前面 6b 动过状态，重新取一次
+  const rev = fresh.rev;
   eq((await j(await get('/api/state?code=' + host.code + '&token=' + guest.token + '&rev=' + rev))).body.same, true, 'rev 相同 -> 只回 same');
   eq((await j(await A(host.code, guest.token, { action: 'leave' }))).body.ok, false, '牌局进行中不能退出');
   const lobby = (await j(await post('/api/create', { name: '要走的人' }))).body;

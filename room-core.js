@@ -157,6 +157,11 @@ module.exports = function createCore(E) {
     }
 
     if (!room.started || !st) return { ok: false, msg: '牌局还没开始' };
+    // 从持久化恢复的牌局可能缺 history（落盘时省略了）—— 补齐，否则撤销/下注会崩
+    if (!Array.isArray(st.history)) st.history = [];
+    if (!Array.isArray(st.log)) st.log = [];
+    if (!Array.isArray(st.bench)) st.bench = [];
+    if (!Array.isArray(st.players)) return { ok: false, msg: '牌局数据损坏' };
 
     if (a === 'next') { E.nextHand(st); bump(room); return { ok: true }; }
     if (a === 'undo') {
