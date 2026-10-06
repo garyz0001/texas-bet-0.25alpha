@@ -25,28 +25,60 @@ const exported=new Set((m?m[1]:'').split(',').map(s=>s.trim()).filter(Boolean));
 const used=new Set();
 for(const mm of app.matchAll(/\bE\.([A-Za-z_$][\w$]*)/g)) used.add(mm[1]);
 for(const mm of fs.readFileSync('serve.js','utf8').matchAll(/\bE\.([A-Za-z_$][\w$]*)/g)) used.add(mm[1]);
+for(const f of ['room-core.js','worker.mjs'])
+  for(const mm of fs.readFileSync(f,'utf8').matchAll(/\bE\.([A-Za-z_$][\w$]*)/g)) used.add(mm[1]);
 const bad=[...used].filter(u=>!exported.has(u));
 if(bad.length){console.log('FAIL 引用了 engine.js 未导出的 API: '+bad.join(', '));fails++;}
 else console.log('ok   引用的引擎 API ['+[...used].join(', ')+'] 全部已导出');
 
-// 关键需求存在性检查
-const need=[
-  [/\/api\/create/, 'serve.js 创建房间接口'],
-  [/\/api\/join/, 'serve.js 加入房间接口'],
-  [/HOST_ONLY/, 'serve.js 房主专属操作白名单'],
-  [/st\.current !== seat/, 'serve.js 轮到才可操作的服务端校验'],
-  [/只有房主可以操作/, 'serve.js 房主权限报错文案'],
-  [/bigCode/, 'index.html 创建后确认房间号'],
-  [/myNameView/, 'index.html 创建后确认临时ID'],
-  [/inJoinCode/, 'index.html 加入房间号输入'],
-  [/inJoinName/, 'index.html 加入临时ID输入'],
+// 关键需求存在性检查（服务端相关会在 serve/room-core/worker 三个文件里找）
+const SERVER_FILES = ['serve.js', 'room-core.js', 'worker.mjs'];
+const need = [
+  [/\/api\/create/,            '服务端 创建房间接口'],
+  [/\/api\/join/,              '服务端 加入房间接口'],
+  [/\/api\/ping/,              '服务端 探测接口 /api/ping'],
+  [/HOST_ONLY/,                  '服务端 房主专属操作白名单'],
+  [/st\.current !== seat/,      '服务端 轮到才可操作的校验'],
+  [/只有房主可以操作/,           '服务端 房主权限报错文案'],
+  [/bigCode/,   'index.html 创建后确认房间号'],
+  [/myNameView/,'index.html 创建后确认临时ID'],
+  [/inJoinCode/,'index.html 加入房间号输入'],
+  [/inJoinName/,'index.html 加入临时ID输入'],
+  [/homeHint/,  'index.html 静态托管提示节点'],
+  [/config\.js/, 'index.html 引入 config.js'],
   [/canActNow/, 'app.js 客户端只在轮到时渲染操作'],
   [/openShowdown/, 'app.js 摊牌确认'],
+  [/const snap = raw/, 'app.js 滑条吸附大盲整数倍'],
+  [/NO_API/, 'app.js 区分静态托管与网络不通'],
 ];
-for(const [re,name] of need){
-  const src=(re.source.includes('api')||re.source.includes('HOST')||re.source.includes('current')||re.source.includes('房主'))?'serve.js':(/bigCode|inJoin|myName/.test(re.source)?'index.html':'app.js');
-  if(!fs.readFileSync(src,'utf8').match(re)){console.log('FAIL 缺少 '+name);fails++;}
-  else console.log('ok   '+name);
+for (const [re, name] of need) {
+  let okHit = false;
+  if (/bigCode|myNameView|inJoin|homeHint|config/.test(re.source)) {
+    okHit = !!fs.readFileSync('index.html', 'utf8').match(re);
+  } else if (/canActNow|openShowdown|snap|NO_API/.test(re.source)) {
+    okHit = !!fs.readFileSync('app.js', 'utf8').match(re);
+  } else {
+    okHit = SERVER_FILES.some(f => !!fs.readFileSync(f, 'utf8').match(re));
+  }
+  if (!okHit) { console.log('FAIL 缺少 ' + name); fails++; }
+  else console.log('ok   ' + name);
 }
+
+// Cloudflare 部署所需文件
+for (const f of ['room-core.js', 'worker.mjs', 'wrangler.toml', 'tools/build.js', 'package.json', 'config.js', 'README.md']) {
+  if (!fs.existsSync(f)) { console.log('FAIL 缺少部署文件 ' + f); fails++; }
+  else console.log('ok   部署文件存在: ' + f);
+}
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+if (!pkg.scripts || !pkg.scripts.build) { console.log('FAIL package.json 缺少 build 脚本（Cloudflare Pages 构建会失败）'); fails++; }
+else console.log('ok   package.json 有 build 脚本 -> ' + pkg.scripts.build);
+const wr = fs.readFileSync('wrangler.toml', 'utf8');
+if (!/durable_objects\.bindings/.test(wr) || !/class_name\s*=\s*"RoomStore"/.test(wr)) {
+  console.log('FAIL wrangler.toml 缺少 Durable Object 绑定'); fails++;
+} else console.log('ok   wrangler.toml 已绑定 Durable Object RoomStore');
+if (!/class RoomStore/.test(fs.readFileSync('worker.mjs', 'utf8'))) {
+  console.log('FAIL worker.mjs 没有导出 RoomStore'); fails++;
+} else console.log('ok   worker.mjs 导出 RoomStore');
+
 console.log('\n'+(fails?'X '+fails+' 项失败':'全部通过'));
 process.exit(fails?1:0);

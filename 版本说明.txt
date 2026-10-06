@@ -84,3 +84,67 @@ GitHub Pages 怎么办
   双击 启动服务器.bat
   本机 http://localhost:8080
   手机 http://<电脑IP>:8080
+
+------------------------------------------------
+2026-10-06 第二轮（同为 0.25alpha）：修 Cloudflare 构建失败 + 补上 Cloudflare 后端
+------------------------------------------------
+
+  [原因] Cloudflare Pages 构建失败
+         日志里是 `npm error Missing script: "build"`。
+         Cloudflare Pages 默认执行 `npm run build`，而项目里没有 build 脚本。
+         → 新增 tools/build.js + package.json 的 build 脚本，
+           把 index.html/style.css/app.js/engine.js/config.js 复制到 public/。
+         `npm run build` 现在可以跑通。
+
+  [但是] Cloudflare Pages 也是纯静态托管，跑不了 Node 后端 —— 和 GitHub
+         Pages 一样，房间功能在那上面用不了。所以顺手把后端也搬到
+         Cloudflare 上，让房间功能在 Cloudflare 真正可用。
+
+  [新增] room-core.js —— 平台无关的房间逻辑核心
+         把原来 serve.js 里的房间代码整体抽出来，只依赖一个 engine 对象
+         和一个 Map(rooms)，不碰任何 Node 专有 API。
+         serve.js（本地）和 worker.mjs（Cloudflare）共用这一份，
+         两边规则 100% 一致，不会出现「本地和线上行为不同」。
+         另外 token 改用 globalThis.crypto.getRandomValues（Worker 里没有
+         require('crypto')），并加了 route() 路由 + sweep() 回收。
+
+  [重写] serve.js —— 只剩「静态文件 + 把 /api/* 转给 room-core」，
+         对外导出 createServer / rooms / core / VER，测试脚本不受影响。
+
+  [新增] worker.mjs —— Cloudflare Worker 版
+         · /api/* → Durable Object RoomStore
+         · 其它路径 → 静态资源（env.ASSETS）
+         · OPTIONS 预检与所有 API 响应都带 CORS
+         · RoomStore 是单例 DO，每个请求在同一条线程里串行执行 ——
+           和本地 Node 版一样，天然没有并发写冲突
+         · 房间状态写入 DO storage：DO 被回收后重建，房间和牌局都还在
+         · history（撤销快照）不落盘，避免撑爆存储；撤销只在本手内有意义
+
+  [新增] wrangler.toml —— 静态资源目录 + Durable Object 绑定 + 迁移
+  [新增] test-worker.js —— 在 Node 里跑真实 worker.mjs + 模拟 DO storage，
+         8 组断言：路由/CORS/建房/加入/房主权限/轮到才能操作/
+                   摊牌确认/下一手/DO 持久化/rev 去重/房间回收
+  [改]   package.json —— 增加 build / deploy / dev 三个脚本
+  [改]   check-ui.js —— 服务端断言改为扫 serve.js+room-core.js+worker.mjs，
+         并新增「部署文件齐全」「有 build 脚本」「wrangler 已绑 DO」检查
+  [改]   README.md —— 补 Cloudflare 部署步骤（CLI 与 Git 两种）
+
+Cloudflare 部署
+---------------
+  npm run build && npx wrangler login && npm run deploy
+  （或者在 Cloudflare 后台连 Git：build = npm run build，
+    deploy = npx wrangler deploy）
+
+  只想用 Pages（纯静态、无房间功能）：build = npm run build，
+  output directory = public。构建能过，但开房间会提示没有后端。
+
+回归（全部通过）
+----------------
+  node test.js        引擎 18 场景
+  node fuzz.js        400 手随机对局不变量
+  node test-room.js   本地 Node 后端集成
+  node test-dom.js    界面冒烟 17 组
+  node test-worker.js Cloudflare 版 8 组   ← 新增
+  node check-ui.js    静态契约 + 部署文件检查
+  npm run build       通过（Cloudflare Pages 构建命令）
+  运行中的 8080 实测：/api/ping、创建/加入/开局、房主权限校验全部正常

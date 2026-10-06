@@ -1,0 +1,19 @@
+# Cloudflare Worker + 静态资源 + Durable Object（房间状态）
+# 部署： npm run build && npx wrangler deploy
+name = "texas-bet"
+main = "worker.mjs"
+compatibility_date = "2026-10-06"
+
+# 静态网页放 public/（由 npm run build 生成）
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# 房间状态存 Durable Object：单例、串行执行，天然无并发写冲突
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "RoomStore"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RoomStore"]

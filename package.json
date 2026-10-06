@@ -5,10 +5,13 @@
   "description": "德州扑克虚拟下注器 · 只管筹码，现实发牌（本地/房间两种模式）",
   "main": "serve.js",
   "scripts": {
-    "start": "node serve.js"
+    "start": "node serve.js",
+    "build": "node tools/build.js",
+    "deploy": "npm run build && npx wrangler deploy",
+    "dev": "npm run build && npx wrangler dev"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "license": "UNLICENSED"
 }
