@@ -1,0 +1,86 @@
+0.25alpha 存档
+===============
+日期: 2026-10-06
+基于: 0.2alpha（房间模式）
+旧版本: 0.1alpha / 0.11alpha / 0.2alpha 均未改动，各自目录原样保留
+
+本版改动
+--------
+  [修复] 滑条（进度条）取值没有吸附到大盲整数倍
+    · 先做了对照诊断：把「本地模式」和「房间模式」渲染出的下注面板
+      HTML 逐字节对比，结果完全一致 —— 说明不是两套逻辑，是同一份代码。
+      真正的原因：滑条是「按剩余筹码百分比」换算的，
+        value = 已投 + 百分比 × 后手
+      当后手正好是整百（1000）时，每 1% = 10 = 大盲，看起来全是整数倍；
+      一旦后手不是整百（下过盲注后的 995 / 990 / 打过几手的零头），
+        1% = 9.95 / 9.9，拖出来的自然就不是大盲倍数。
+    · 修复：滑条取值统一吸附
+        - 0%  → 保留真实「跟注/过牌额」
+        - 100% → 保留真实「后手」（全下，不吸附）
+        - 中间档 → 四舍五入到最近的大盲整数倍
+      手输数字框仍然保留精确值，方便微调。
+    · 本地模式与房间模式共用这段代码，修一处两边都好。
+
+  [修复] 上传到 GitHub Pages 后开房间报「连不上服务器」
+    · 根因：GitHub Pages 是纯静态托管，跑不了 Node 后端，
+      /api/* 全部返回 404 HTML，前端解析 JSON 失败就落到通用错误文案上。
+      这是平台限制，不是代码 bug，但提示文案确实在误导。
+    · 修复：
+        1. api() 现在按响应 Content-Type 分类错误
+             NO_API   = 静态托管，没有后端
+             NETWORK  = 后端没起 / 连不上
+        2. 首页启动时探测 /api/ping，静态托管时直接在首页说明：
+             「这里没有房间后端（当前是纯静态托管，如 GitHub Pages）
+               → 房间功能不可用，本地单机可以正常玩。
+               开房间的部署方法见 版本说明.txt」
+             只有确认是静态托管才这么说；网络抖动不会误报。
+        3. 新增 GET /api/ping，返回 {ok, app, ver}
+        4. serve.js 下发 Access-Control-Allow-Origin: * 并处理 OPTIONS，
+           支持「网页在 GitHub Pages、后端在别处」的分开放法
+        5. 新增 config.js：window.TEXAS_BET_API 填后端地址，留空 = 同源
+        6. 新增 package.json / render.yaml / README.md，可一键部署后端
+
+新增/改动文件
+------------
+  app.js      滑条 snap 吸附；api() 错误分类；apiBase() 可配置后端；
+              probeServer() 首页探测
+  serve.js    /api/ping；CORS + OPTIONS；版本号 0.25alpha
+  index.html  引入 config.js；首页加 #homeHint 提示
+  style.css   .hint 样式
+  config.js   新增 —— 后端地址配置
+  package.json / render.yaml / README.md  新增 —— 部署用
+  test-dom.js 新增场景 14/15/16/17
+
+测试（全部通过）
+----------------
+  node test.js       引擎 18 场景
+  node fuzz.js       400 手随机对局不变量
+  node test-room.js  房间集成（起真实 HTTP 服务端）
+  node test-dom.js   界面冒烟 17 组，其中：
+        14 = 滑条 101 个取样点全部是大盲整数倍（含 995/990 这种零头后手）
+        15 = 本地模式与房间模式的下注面板 HTML 逐字节相同
+        16 = NO_API / NETWORK 两种错误文案分类
+        17 = 真实 HTTP 三态：静态托管 / 后端没起 / 正常后端 + CORS 头
+  node check-ui.js   DOM id / 样式 / 引擎导出 / 需求存在性
+
+运行中的 8080 已实测
+--------------------
+  GET  /api/ping  -> {"ok":true,"app":"texas-bet","ver":"0.25alpha"}
+  GET  /config.js -> 200
+  GET  /api/ping  带 Access-Control-Allow-Origin: *
+  POST /api/create -> 创建房间成功
+  页面已包含 config.js 与首页提示节点
+
+GitHub Pages 怎么办
+--------------------
+  GitHub Pages 跑不了 Node，房间功能在那上面用不了（本地单机可以）。
+  三个办法，见 README.md：
+    A. 整个目录部署到 Render（仓库里已带 render.yaml，连上即可）
+    B. 部署到任意能跑 npm start 的主机
+    C. 网页留 GitHub Pages，后端单独部署，然后在 config.js 里填后端地址
+
+启动
+----
+  双击 启动服务器.bat
+  本机 http://localhost:8080
+  手机 http://<电脑IP>:8080

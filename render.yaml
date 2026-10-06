@@ -1,0 +1,13 @@
+# Render 免费版蓝图：连上你的 GitHub 仓库即可一键部署后端
+# 用法：Render 控制台 -> New -> Blueprint -> 选这个仓库
+services:
+  - type: web
+    name: texas-bet
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: node serve.js
+    healthCheckPath: /api/ping
+    envVars:
+      - key: NODE_VERSION
+        value: "20"

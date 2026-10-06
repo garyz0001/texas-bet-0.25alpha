@@ -1,0 +1,14 @@
+{
+  "name": "texas-bet",
+  "version": "0.25.0-alpha",
+  "private": true,
+  "description": "德州扑克虚拟下注器 · 只管筹码，现实发牌（本地/房间两种模式）",
+  "main": "serve.js",
+  "scripts": {
+    "start": "node serve.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "UNLICENSED"
+}

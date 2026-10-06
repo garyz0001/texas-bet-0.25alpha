@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>德州扑克 · 虚拟下注器 0.25alpha</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ 首页：选择模式 ============ -->
+  <section id="homeView" class="view">
+    <div class="sheet">
+      <div class="brand center"><span class="logo">♠</span><div><h1>虚拟下注器</h1><p class="sub">只管筹码 · 现实发牌</p></div></div>
+      <div class="modebtns">
+        <button id="btnLocal" class="btn primary big">本地单机</button>
+        <button id="btnCreateOpen" class="btn big">创建房间</button>
+        <button id="btnJoinOpen" class="btn big">加入房间</button>
+        <button id="btnBackRoom" class="btn primary big hidden">回到房间 <b id="backRoomNo"></b></button>
+      </div>
+
+      <div id="paneCreate" class="form hidden">
+        <h3 class="paneTitle">创建房间</h3>
+        <label class="field"><span>你的临时ID <em class="tip">（给自己起个名字）</em></span>
+          <input type="text" id="inCreateName" maxlength="12" placeholder="比如：老王" autocomplete="off"></label>
+        <div class="sheetbtns"><button id="btnCreateGo" class="btn primary">创建房间</button></div>
+      </div>
+
+      <div id="paneJoin" class="form hidden">
+        <h3 class="paneTitle">加入房间</h3>
+        <label class="field"><span>房间号 <em class="tip">（6 位数字，问房主要）</em></span>
+          <input type="text" id="inJoinCode" maxlength="6" inputmode="numeric" placeholder="123456" autocomplete="off"></label>
+        <label class="field"><span>你的临时ID <em class="tip">（在同一房间里不能重名）</em></span>
+          <input type="text" id="inJoinName" maxlength="12" placeholder="比如：小李" autocomplete="off"></label>
+        <div class="sheetbtns"><button id="btnJoinGo" class="btn primary">加入房间</button></div>
+      </div>
+
+      <p id="homeHint" class="hint"></p>
+      <p id="homeErr" class="err"></p>
+    </div>
+  </section>
+
+  <!-- ============ 创建成功：确认房间号 + 临时ID ============ -->
+  <section id="confirmView" class="view hidden">
+    <div class="sheet center">
+      <h2>房间已创建</h2>
+      <p class="msub">把下面的房间号发给朋友，他们选「加入房间」输入即可</p>
+      <div class="bigcode" id="bigCode">------</div>
+      <button id="btnCopyCode" class="btn ghost">复制房间号</button>
+      <div class="idrow"><span>你的临时ID</span><b id="myNameView"></b></div>
+      <div class="sheetbtns"><button id="btnEnterRoom" class="btn primary">确认，进入房间</button></div>
+    </div>
+  </section>
+
+  <!-- ============ 大厅：等玩家加入 ============ -->
+  <section id="lobbyView" class="view hidden">
+    <div class="sheet">
+      <button id="btnHomeLobby" class="sheethome">回到主页</button>
+      <h2>等待玩家加入</h2>
+      <div class="lobbycode">房间号 <b id="lobbyCode">------</b>
+        <button id="btnCopyCode2" class="btn ghost sm">复制</button></div>
+      <div class="idrow"><span>我的临时ID</span><b id="lobbyMyName"></b></div>
+      <div class="mlist" id="lobbyList"></div>
+      <p id="lobbyHint" class="msub"></p>
+      <div class="sheetbtns">
+        <button id="btnLeave" class="btn ghost">退出房间</button>
+        <button id="btnLobbySetup" class="btn">牌桌设置</button>
+        <button id="btnLobbyStart" class="btn primary">开始游戏</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 牌桌 ============ -->
+  <div id="gameView" class="view hidden">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">♠</span>
+      <div><h1>虚拟下注器</h1><p class="sub">只管筹码 · 现实发牌</p></div>
+    </div>
+    <div class="topstats">
+      <div class="stat" id="roomChip" hidden><span class="lbl">房间号</span><span class="val" id="roomChipVal">—</span></div>
+      <div class="stat"><span class="lbl">底池</span><span class="val" id="stPot">0</span></div>
+      <div class="stat"><span class="lbl">本轮最高</span><span class="val" id="stBet">0</span></div>
+      <div class="stat"><span class="lbl">盲注</span><span class="val" id="stBlinds">—</span></div>
+      <div class="stat"><span class="lbl">手牌 #</span><span class="val" id="stHand">—</span></div>
+      <div class="stat"><span class="lbl">圈</span><span class="val" id="stStreet">—</span></div>
+      <div class="stat conn" id="connChip" hidden><span class="lbl">连接</span><span class="val" id="connVal">—</span></div>
+    </div>
+    <div class="topbtns">
+      <button id="btnForceFold" class="btn ghost hidden">代弃牌</button>
+      <button id="btnUndo" class="btn ghost">撤销</button>
+      <button id="btnSetup" class="btn ghost">牌桌设置</button>
+      <button id="btnHome" class="btn ghost">回到主页</button>
+    </div>
+  </header>
+
+  <div class="logwrap"><div id="log" class="log"></div></div>
+
+  <div class="table">
+    <div class="potline">
+      当前底池 <b id="potBig">0</b>
+      <span class="sub2" id="betLine"></span>
+    </div>
+    <div class="seats" id="seats"></div>
+  </div>
+
+  <footer class="actionbar">
+    <div class="ab-head">
+      <span class="ab-turn" id="abTurn">等待开局</span>
+      <span class="ab-quick" id="abHint"></span>
+    </div>
+    <div class="ab-main">
+      <button id="btnStart" class="btn primary">开始游戏</button>
+      <button id="btnNext" class="btn primary hidden">下一手（现实发完牌再点）</button>
+    </div>
+  </footer>
+
+  </div><!-- /gameView -->
+</div>
+
+<div class="modal hidden" id="mShowdown">
+  <div class="sheet">
+    <h2>摊牌 · 手动确认胜负</h2>
+    <p class="msub" id="sdSub">点选赢家；多人同时选中 = 平分底池</p>
+    <div id="showdownPlayers" class="sd-players"></div>
+    <div class="poolinfo" id="poolInfo"></div>
+    <div class="sd-actions" id="sdActionsHost">
+      <div class="sd-split">
+        <button id="btnSplit" class="btn ghost">平分（多选）</button>
+        <button id="btnConfirmWin" class="btn primary">确认赢家</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="mSetup">
+  <div class="sheet">
+    <h2>牌桌设置</h2>
+    <div class="form">
+      <label class="field"><span id="lblPlayers">人数（2 – 10）</span>
+        <input type="number" id="setPlayers" min="2" max="10" step="1" value="6"></label>
+      <label class="field"><span>带入筹码量</span>
+        <input type="number" id="setBuyin" min="1" step="10" value="1000"></label>
+      <div class="field"><span>盲注 小 / 大</span>
+        <div class="inline">
+          <input type="number" id="setSb" min="1" step="1" value="5">
+          <em>/</em>
+          <input type="number" id="setBb" min="1" step="1" value="10">
+        </div>
+      </div>
+      <div class="field" id="fieldNames"><span>玩家名单 <em class="tip">（点「抓头」设定该座位每手额外 +1 强制大盲）</em></span>
+        <div class="names" id="nameList"></div></div>
+      <input type="hidden" id="setStraddle" value="">
+    </div>
+    <div class="sheetbtns">
+      <button id="btnCancelSetup" class="btn ghost">取消</button>
+      <button id="btnSaveSetup" class="btn primary">保存并重开牌桌</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<script src="config.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
